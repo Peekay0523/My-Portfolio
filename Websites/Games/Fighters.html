@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fighting Game</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #333;
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #fff;
+        }
+        .game-title {
+            font-family: 'Arial', sans-serif;
+            font-size: 36px;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .play-button {
+            margin-top: 20px;
+        }
+        .game-over {
+            display: none;
+            font-size: 48px;
+            color: white;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-title">
+        Fighting Game
+    </div>
+    <div id="gameOverMessage" class="game-over"></div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <button id="playButton" class="btn btn-primary play-button">Play</button>
+    <button id="playAgainButton" class="btn btn-primary play-button" style="display: none;">Play Again</button>
+
+    <!-- Bootstrap JS (Optional, for any interactivity like button effects) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const playButton = document.getElementById('playButton');
+        const playAgainButton = document.getElementById('playAgainButton');
+        const gameOverMessage = document.getElementById('gameOverMessage');
+
+        let gameOver = false; // Track if the game is over
+
+        const player = {
+            x: 50,
+            y: 300,
+            width: 150,
+            height: 180,
+            speed: 5,
+            isJumping: false,
+            isAttacking: false,
+            currentFrame: 0,
+            frameCount: 4, // Default for idle and run
+            gravity: 1,
+            velocityY: 0,
+            currentAction: 'idle', // Default action
+            frameDelay: 6, // Delay for smooth frame switching
+            frameDelayCount: 0, // Counter to control frame rate
+            isRunning: false,
+            direction: 'right', // Direction the player is facing
+            health: 100
+        };
+
+        // Load background image
+        const backgroundImage = new Image();
+        backgroundImage.src = './sprites/background.jpg'; // Adjust path as needed
+
+        // Load images (for each action)
+        const sprites = {
+            idle: [
+                'idle_0.png', 'idle_1.png', 'idle_2.png', 'idle_3.png'
+            ],
+            attackLeft: [
+                'attack_l_0.png', 'attack_l_1.png', 'attack_l_2.png'
+            ],
+            attackRight: [
+                'attack_r_0.png', 'attack_r_1.png', 'attack_r_2.png'
+            ],
+            jump: [
+                'jump_0.png', 'jump_1.png'
+            ],
+            run: [
+                'run_0.png', 'run_1.png', 'run_2.png', 'run_3.png'
+            ],
+            death: [
+                'death_0.png', 'death_1.png', 'death_2.png', 'death_3.png'
+            ]
+        };
+
+        // Preload images
+        const imageElements = {};
+        Object.keys(sprites).forEach(action => {
+            imageElements[action] = sprites[action].map(src => {
+                const img = new Image();
+                img.src = `./sprites/${src}`; // Adjust path as needed
+                return img;
+            });
+        });
+
+        // Load enemy image
+        const enemyImage = new Image();
+        enemyImage.src = './sprites/ufo.png'; // Adjust path as needed
+
+        const enemy = {
+            x: canvas.width - 150, // Position the enemy on the right side
+            y: 300,
+            width: 50,
+            height: 50,
+            health: 100,
+            direction: 'left',
+            speed: 2,
+            shootingCooldown: 0, // Used to prevent constant shooting
+            projectiles: [] // Array to store enemy projectiles
+        };
+
+        const projectile = {
+            width: 10,
+            height: 5,
+            speed: 4
+        };
+
+        // Draw the background image
+        function drawBackground() {
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); // Draw the background image to cover the whole canvas
+        }
+
+        // Draw the player sprite on the canvas
+        function drawPlayer() {
+            const action = player.currentAction; // Determine the current action
+            const spriteSheet = imageElements[action];
+
+            // Draw the current frame of the selected action
+            ctx.drawImage(spriteSheet[player.currentFrame], player.x, player.y, player.width, player.height);
+            drawHealthBar(player.x, player.y, player.health, 'player'); // Draw player health bar
+        }
+
+        // Draw the enemy on the canvas
+        function drawEnemy() {
+            ctx.drawImage(enemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+            drawHealthBar(enemy.x, enemy.y, enemy.health, 'enemy'); // Draw enemy health bar
+            // Draw enemy projectiles
+            enemy.projectiles.forEach(projectile => {
+                ctx.fillStyle = 'red'; // Color of the projectiles
+                ctx.fillRect(projectile.x, projectile.y, projectile.width, projectile.height);
+            });
+        }
+
+        // Draw health bar (for player and enemy)
+        function drawHealthBar(x, y, health, type) {
+            const barWidth = 100;
+            const barHeight = 10;
+            const healthPercentage = health / 100;
+
+            // Draw the background health bar
+            ctx.fillStyle = '#555';
+            ctx.fillRect(x, y - 15, barWidth, barHeight);
+
+            // Draw the health foreground (current health)
+            ctx.fillStyle = health > 0 ? 'green' : 'red';
+            ctx.fillRect(x, y - 15, barWidth * healthPercentage, barHeight);
+        }
+
+        // Check for collision between player and enemy
+        function checkCollision() {
+            if (player.isAttacking && player.direction === 'right') {
+                // Check if player is close enough to hit the enemy (simplified collision detection)
+                if (player.x + player.width >= enemy.x && player.x <= enemy.x + enemy.width) {
+                    // Decrease enemy health if the player is attacking and in range
+                    enemy.health -= 1;
+                }
+            } else if (player.isAttacking && player.direction === 'left') {
+                // Check if player is close enough to hit the enemy (simplified collision detection)
+                if (player.x <= enemy.x + enemy.width && player.x + player.width >= enemy.x) {
+                    // Decrease enemy health if the player is attacking and in range
+                    enemy.health -= 1;
+                }
+            }
+
+            // Check for collision with enemy projectiles
+            enemy.projectiles.forEach((projectile, index) => {
+                // Check for collision with projectiles (whether the player is jumping or not)
+                if (projectile.x < player.x + player.width &&
+                    projectile.x + projectile.width > player.x &&
+                    projectile.y < player.y + player.height &&
+                    projectile.y + projectile.height > player.y) {
+                    // Reduce player health if projectile collides
+                    player.health -= 5;
+                    // Remove projectile after collision
+                    enemy.projectiles.splice(index, 1);
+                }
+            });
+        }
+
+        // Update the player's position and animation state
+        function updatePlayer() {
+            player.y += player.velocityY;
+            player.velocityY += player.gravity;
+
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+                player.velocityY = 0;
+                player.isJumping = false; // Reset jumping state when player lands
+            }
+
+            // Move the player horizontally if running
+            if (player.isRunning) {
+                if (player.direction === 'right') {
+                    player.x += player.speed;
+                } else if (player.direction === 'left') {
+                    player.x -= player.speed;
+                }
+            }
+
+            // Cycle through frames for animations
+            if (player.frameDelayCount >= player.frameDelay) {
+                player.frameDelayCount = 0; // Reset the delay counter
+                if (player.isAttacking || player.isJumping) {
+                    // Quickly cycle through frames for attack/jump actions
+                    player.currentFrame = (player.currentFrame + 1) % imageElements[player.currentAction].length;
+                } else {
+                    // Idle or running: Slow down frame cycling
+                    if (player.currentFrame >= imageElements[player.currentAction].length - 1) {
+                        player.currentFrame = 0;
+                    } else {
+                        player.currentFrame++;
+                    }
+                }
+            } else {
+                player.frameDelayCount++;
+            }
+        }
+
+        // Update the enemy's behavior (simple AI)
+        function updateEnemy() {
+            // Move towards the player if not in attack range
+            if (enemy.x > player.x + player.width) {
+                enemy.x -= enemy.speed;
+            } else if (enemy.x < player.x - enemy.width) {
+                enemy.x += enemy.speed;
+            }
+
+            // Shoot projectiles when near the player
+            if (Math.abs(player.x - enemy.x) < 300 && enemy.shootingCooldown <= 0) {
+                enemy.projectiles.push({
+                    x: enemy.x,
+                    y: enemy.y + enemy.height / 2,
+                    width: projectile.width,
+                    height: projectile.height,
+                    speed: projectile.speed,
+                    direction: player.x > enemy.x ? 'right' : 'left'
+                });
+                enemy.shootingCooldown = 50; // Cooldown before the next shot
+            }
+
+            // Move the projectiles
+            enemy.projectiles.forEach(projectile => {
+                if (projectile.direction === 'right') {
+                    projectile.x += projectile.speed;
+                } else {
+                    projectile.x -= projectile.speed;
+                }
+            });
+
+            // Decrease cooldown timer
+            if (enemy.shootingCooldown > 0) {
+                enemy.shootingCooldown--;
+            }
+        }
+
+        // Handle input (keys for movement and actions)
+        function handleInput(event) {
+            const key = event.key;
+
+            if (key === 'ArrowRight' && !player.isRunning) {
+                player.isRunning = true;
+                player.direction = 'right';
+                player.currentAction = 'run';
+                player.currentFrame = 0;
+            }
+            if (key === 'ArrowLeft' && !player.isRunning) {
+                player.isRunning = true;
+                player.direction = 'left';
+                player.currentAction = 'run';
+                player.currentFrame = 0;
+            }
+
+            if (key === 'ArrowUp' && !player.isJumping) {
+                player.isJumping = true;
+                player.velocityY = -15;
+                player.currentAction = 'jump';
+                player.currentFrame = 0; // Reset jump animation
+            }
+
+            if (key === ' ' && !player.isAttacking) { // Space for attack
+                player.isAttacking = true;
+                player.currentAction = player.direction === 'right' ? 'attackRight' : 'attackLeft';
+                player.currentFrame = 0; // Reset attack animation
+            }
+        }
+
+        // Stop the running action when the key is released
+        function handleKeyRelease(event) {
+            const key = event.key;
+
+            if (key === 'ArrowRight' || key === 'ArrowLeft') {
+                player.isRunning = false;
+                player.currentAction = 'idle'; // Switch to idle when the arrow keys are released
+                player.currentFrame = 0; // Reset the idle animation
+            }
+            if (key === ' ' && player.isAttacking) {
+                player.isAttacking = false;
+                player.currentAction = 'idle'; // Switch back to idle after attack
+                player.currentFrame = 0; // Reset idle animation
+            }
+        }
+
+        // Check if the game is over (player or enemy health reaches 0)
+        function checkGameOver() {
+            if (player.health <= 0) {
+                gameOver = true;
+                gameOverMessage.textContent = 'You Lose!';
+                gameOverMessage.style.display = 'block';
+                playAgainButton.style.display = 'block';
+            } else if (enemy.health <= 0) {
+                gameOver = true;
+                gameOverMessage.textContent = 'You Win!';
+                gameOverMessage.style.display = 'block';
+                playAgainButton.style.display = 'block';
+            }
+        }
+
+        // Reset the game state
+        function resetGame() {
+            player.x = 50;
+            player.y = 300;
+            player.health = 100;
+            player.currentAction = 'idle';
+            player.currentFrame = 0;
+
+            enemy.x = canvas.width - 150;
+            enemy.y = 300;
+            enemy.health = 100;
+            enemy.projectiles = [];
+
+            gameOver = false;
+            gameOverMessage.style.display = 'none';
+            playAgainButton.style.display = 'none';
+        }
+
+        // Main game loop
+        function gameLoop() {
+            if (!gameOver) {
+                drawBackground();
+                checkCollision(); // Check for collisions
+                updatePlayer();
+                updateEnemy();
+                drawPlayer();
+                drawEnemy();
+                checkGameOver(); // Check if the game is over
+            }
+
+            requestAnimationFrame(gameLoop); // Keep the game loop going
+        }
+
+        // Add event listeners for keyboard inputs
+        document.addEventListener('keydown', handleInput);
+        document.addEventListener('keyup', handleKeyRelease);
+
+        // Play button functionality
+        playButton.addEventListener('click', function() {
+            playButton.style.display = 'none'; // Hide the play button when the game starts
+            gameLoop(); // Start the game loop
+        });
+
+        // Play Again button functionality
+        playAgainButton.addEventListener('click', function() {
+            resetGame(); // Reset the game state
+            gameLoop(); // Restart the game loop
+        });
+    </script>
+</body>
+</html>
+
+

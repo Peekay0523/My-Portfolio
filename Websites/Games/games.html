@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Arcade</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #f0f6fc;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        nav.nav-1 {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: #161b22;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .ul-li-l, .ul-li-r {
+            list-style: none;
+            display: flex;
+            gap: 20px;
+            padding: 0;
+            margin: 0;
+        }
+
+        .ul-li-l li, .ul-li-r li {
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .ul-li-l li:hover, .ul-li-r li:hover {
+            color: #58a6ff;
+        }
+
+        .div-1 {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .header {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px #58a6ff;
+        }
+
+        .inner-div a {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            color: #f0f6fc;
+            text-decoration: none;
+            background-color: #21262d;
+            border-radius: 5px;
+            transition: 0.3s ease;
+            box-shadow: 0 0 10px rgba(88, 166, 255, 0.8);
+        }
+
+        .inner-div a:hover {
+            background-color: #58a6ff;
+            color: #0d1117;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-1">
+        <ul class="ul-li-l">
+            <li>🎮 Arcade</li>
+        </ul>
+        <ul class="ul-li-r">
+            <li>🏠 Home</li>
+            <li>🔧 Settings</li>
+        </ul>
+    </nav>
+
+    <div class="div-1">
+        <h1 class="header">Select Game</h1>
+        <div class="inner-div">
+            <a href="Brick Breaker.html">🧱 Brick Breaker</a><br>
+            <a href="Fighters.html">👽 Alien Slayer</a><br>
+            <a href="Game.html">🐍 Snake Blitz</a><br>
+            <a href="Space Invaders.html">🚀 Space Invaders</a><br>
+        </div>
+    </div>
+
+    <script>
+        // Placeholder for future functionality
+    </script>
+</body>
+</html>
